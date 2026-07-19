@@ -1,0 +1,51 @@
+extends SceneTree
+
+const PartySession := preload("res://addons/couch_party/core/party_session.gd")
+const PartyLobbyView := preload("res://addons/couch_party/ui/party_lobby_view.gd")
+
+
+func _initialize() -> void:
+	_run.call_deferred()
+
+
+func _run() -> void:
+	var failures: Array[String] = []
+	var party: RefCounted = PartySession.new()
+	party.join(PartySession.KEYBOARD_PRIMARY)
+	party.set_ready(PartySession.KEYBOARD_PRIMARY, true)
+	party.add_bot(PartySession.BOT_HARD)
+	var view: Control = PartyLobbyView.new()
+	root.add_child(view)
+	view.setup({"title": "TEST PARTY", "max_players": 6})
+	view.render(party.snapshot())
+	var slot_texts: Array[String] = view.slot_texts()
+	_expect(slot_texts.size() == 6, "the lobby should expose all six slots", failures)
+	_expect("KEYBOARD" in slot_texts[0] and "READY" in slot_texts[0], "the human slot should show device and readiness", failures)
+	_expect("CPU" in slot_texts[1] and "HARD" in slot_texts[1], "the bot slot should show kind and difficulty", failures)
+	_expect("EMPTY" in slot_texts[2], "unused slots should remain visible", failures)
+	var requested_difficulties: Array[String] = []
+	view.add_bot_requested.connect(func(difficulty: String) -> void:
+		requested_difficulties.append(difficulty)
+	)
+	for node: Node in view.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button.text.begins_with("+"):
+			button.pressed.emit()
+	_expect(
+		requested_difficulties == ["easy", "medium", "hard"],
+		"the lobby buttons should request every published bot difficulty",
+		failures,
+	)
+	view.queue_free()
+	if failures.is_empty():
+		print("PASS: party lobby view")
+		quit(0)
+		return
+	for failure: String in failures:
+		printerr("FAIL: %s" % failure)
+	quit(1)
+
+
+func _expect(condition: bool, message: String, failures: Array[String]) -> void:
+	if not condition:
+		failures.append(message)
