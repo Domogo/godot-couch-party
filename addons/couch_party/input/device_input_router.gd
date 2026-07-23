@@ -42,7 +42,7 @@ func frame_for_device(device_id: int) -> Dictionary:
 		"aim": move,
 	}
 	var pending_actions: Dictionary = _pending.get(device_id, {}) as Dictionary
-	for action: String in ["primary", "secondary", "tertiary", "menu", "cancel"]:
+	for action: String in _action_names():
 		frame["%s_held" % action] = bool(held_actions.get(action, false))
 		frame["%s_pressed" % action] = bool(pending_actions.get(action, false))
 		pending_actions[action] = false
@@ -71,6 +71,15 @@ func clear_all() -> void:
 	_axes.clear()
 	_held.clear()
 	_pending.clear()
+
+
+func _action_names() -> Array[String]:
+	if _profile.has_method("action_names"):
+		var configured_actions: Array[String] = []
+		for action_variant: Variant in _profile.action_names():
+			configured_actions.append(String(action_variant))
+		return configured_actions
+	return ["primary", "secondary", "tertiary", "menu", "cancel"]
 
 
 func _ingest_motion(event: InputEventJoypadMotion) -> void:

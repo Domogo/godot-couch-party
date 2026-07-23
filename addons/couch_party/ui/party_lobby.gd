@@ -5,29 +5,47 @@ extends Control
 signal roster_changed(roster: Dictionary)
 signal start_requested(roster: Dictionary)
 
+const PartyLobbyController := preload(
+	"res://addons/couch_party/ui/party_lobby_controller.gd"
+)
 const PartyLobbyView := preload("res://addons/couch_party/ui/party_lobby_view.gd")
 
-var _party: RefCounted
-var _input_router: RefCounted
+var _controller: RefCounted
 var _view: Control
 var _configured: bool = false
 
 
-func setup(party: RefCounted, input_router: RefCounted, options: Dictionary = {}) -> void:
+func setup(
+	party: RefCounted,
+	input_router: RefCounted,
+	options: Dictionary = {},
+) -> bool:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	_party = party
-	_input_router = input_router
+	_configured = false
 	if is_instance_valid(_view):
 		_view.queue_free()
-	_view = PartyLobbyView.new()
+	_view = _create_view(options)
+	if _view == null or not _view.has_method("render_lobby") and not _view.has_method("render"):
+		push_error("CouchPartyLobby view must implement render_lobby(state) or render(roster).")
+		return false
 	add_child(_view)
-	_view.setup(options)
-	_view.add_bot_requested.connect(add_bot)
-	_view.remove_bot_requested.connect(remove_last_bot)
-	_view.start_requested.connect(request_start)
+	if _view.has_method("setup"):
+		_view.call("setup", _view_options(options))
+	if _view.has_signal("add_bot_requested"):
+		_view.connect("add_bot_requested", add_bot)
+	if _view.has_signal("remove_bot_requested"):
+		_view.connect("remove_bot_requested", remove_last_bot)
+	if _view.has_signal("start_requested"):
+		_view.connect("start_requested", request_start)
+
+	_controller = PartyLobbyController.new()
+	_controller.state_changed.connect(_present_state)
+	_controller.start_requested.connect(_forward_start_request)
+	if not _controller.setup(party, input_router, options):
+		return false
 	_configured = true
-	_refresh()
+	return true
 
 
 func _input(event: InputEvent) -> void:
@@ -39,134 +57,97 @@ func _input(event: InputEvent) -> void:
 
 
 func handle_event(event: InputEvent) -> String:
-	if not _configured:
-		return "ignored"
-	_input_router.ingest(event)
-	var device_id: int = _input_router.device_for_event(event)
-	if device_id == _input_router.NO_DEVICE:
-		return "ignored"
-	if not _is_press_event(event):
-		return "ignored"
-	var frame: Dictionary = _input_router.frame_for_device(device_id)
-	if bool(frame["menu_pressed"]):
-		return _handle_menu(device_id)
-	if bool(frame["cancel_pressed"]):
-		return _handle_cancel(device_id)
-	return "ignored"
+	return _controller.handle_event(event) if _configured else "ignored"
 
 
 func device_connection_changed(device_id: int, connected: bool) -> String:
-	if not _configured:
-		return "ignored"
-	var player_id: int = _party.player_for_device(device_id)
-	if player_id < 0:
-		return "available" if connected else "ignored"
-	var action := "reconnected" if connected else "disconnected"
-	if connected:
-		_party.reconnect(device_id)
-	else:
-		_party.disconnect_device(device_id)
-	_input_router.clear_device(device_id)
-	_refresh()
-	return action
+	return (
+		_controller.device_connection_changed(device_id, connected)
+		if _configured
+		else "ignored"
+	)
 
 
 func add_bot(difficulty: String) -> int:
-	if not _configured:
-		return -1
-	var player_id: int = _party.add_bot(difficulty)
-	if player_id > 0:
-		_refresh()
-	return player_id
+	return _controller.add_bot(difficulty) if _configured else -1
 
 
 func remove_last_bot() -> bool:
-	if not _configured:
-		return false
-	var bot_ids: Array[int] = _party.bot_player_ids()
-	if bot_ids.is_empty() or not _party.remove_bot(bot_ids.back()):
-		return false
-	_refresh()
-	return true
+	return _controller.remove_last_bot() if _configured else false
 
 
 func request_start() -> bool:
-	if not _configured or not _party.can_start():
-		return false
-	start_requested.emit(_party.snapshot())
-	return true
+	return _controller.request_start() if _configured else false
 
 
 func open() -> void:
 	show()
-	_refresh()
+	if _configured:
+		_controller.refresh()
 
 
 func close() -> void:
 	hide()
-	_input_router.clear_all()
+	if _configured:
+		_controller.clear_input()
+
+
+func lobby_state() -> Dictionary:
+	return _controller.lobby_state() if _configured else {}
 
 
 func roster() -> Dictionary:
-	return _party.snapshot() if _configured else {}
+	return _controller.roster() if _configured else {}
 
 
 func party_session() -> RefCounted:
-	return _party
+	return _controller.party_session() if _configured else null
 
 
 func input_router() -> RefCounted:
-	return _input_router
+	return _controller.input_router() if _configured else null
 
 
-func _handle_menu(device_id: int) -> String:
-	var player_id: int = _party.player_for_device(device_id)
-	if player_id < 0:
-		if _party.join(device_id) < 0:
-			return "full"
-		_refresh()
-		return "joined"
-	var slot: Dictionary = _party.snapshot()[player_id]
-	if not bool(slot["ready"]):
-		_party.set_ready(device_id, true)
-		_refresh()
-		return "ready"
-	if _party.can_start():
-		start_requested.emit(_party.snapshot())
-		return "start_requested"
-	_party.set_ready(device_id, false)
-	_refresh()
-	return "unready"
+func controller() -> RefCounted:
+	return _controller
 
 
-func _handle_cancel(device_id: int) -> String:
-	var player_id: int = _party.player_for_device(device_id)
-	if player_id < 0:
-		return "ignored"
-	var slot: Dictionary = _party.snapshot()[player_id]
-	if bool(slot["ready"]):
-		_party.set_ready(device_id, false)
-		_refresh()
-		return "unready"
-	if not _party.leave(device_id):
-		return "ignored"
-	_input_router.clear_device(device_id)
-	_refresh()
-	return "left"
+func _create_view(options: Dictionary) -> Control:
+	var supplied_view: Variant = options.get("view")
+	if supplied_view is Control:
+		var control := supplied_view as Control
+		if control.get_parent() != null:
+			push_error("CouchPartyLobby custom view must not already have a parent.")
+			return null
+		return control
+	var supplied_scene: Variant = options.get("view_scene")
+	if supplied_scene is PackedScene:
+		var instance: Node = (supplied_scene as PackedScene).instantiate()
+		if instance is Control:
+			return instance as Control
+		instance.queue_free()
+		push_error("CouchPartyLobby view_scene root must extend Control.")
+		return null
+	return PartyLobbyView.new()
 
 
-func _refresh() -> void:
-	if not _configured:
+func _view_options(options: Dictionary) -> Dictionary:
+	var result := options.duplicate(true)
+	result.erase("view")
+	result.erase("view_scene")
+	result.erase("policy")
+	return result
+
+
+func _present_state(state: Dictionary) -> void:
+	if not is_instance_valid(_view):
 		return
-	var snapshot: Dictionary = _party.snapshot()
-	_view.render(snapshot)
-	roster_changed.emit(snapshot)
+	if _view.has_method("render_lobby"):
+		_view.call("render_lobby", state)
+	else:
+		_view.call("render", state["roster"])
+	roster_changed.emit((state["roster"] as Dictionary).duplicate(true))
 
 
-func _is_press_event(event: InputEvent) -> bool:
-	if event is InputEventJoypadButton:
-		return (event as InputEventJoypadButton).pressed
-	if event is InputEventKey:
-		var key_event := event as InputEventKey
-		return key_event.pressed and not key_event.echo
-	return false
+func _forward_start_request(roster: Dictionary) -> void:
+	start_requested.emit(roster)

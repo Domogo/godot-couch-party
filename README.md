@@ -11,10 +11,11 @@ Godot Couch Party is a small, runtime-only Godot 4 addon for building local mult
 - Join, leave, ready, disconnect, reconnect, and capacity behavior
 - Human, bot, and empty slots with Easy, Medium, and Hard bot metadata
 - Event-driven controller input that never merges different joypads
-- Semantic movement, aim, primary, secondary, tertiary, menu, and cancel fields
+- Semantic movement, aim, configurable action fields, menu, and cancel
 - Configurable controller buttons, keyboard layouts, and stick deadzone
 - Buffered press edges that survive render-to-physics timing
-- Reusable six-slot join/ready lobby with bot controls
+- Headless lobby controller with injectable views and game-owned policies
+- Responsive six-slot default lobby with bot controls
 - Headless public-interface tests and a runnable example project
 
 Godot Couch Party does not implement online multiplayer, game rules, character spawning, scoring, or bot AI.
@@ -111,13 +112,18 @@ Press fields are consumed once per device. Held fields remain true until a relea
 ```gdscript
 const InputProfile := preload("res://addons/couch_party/input/input_profile.gd")
 
-var profile := InputProfile.new({"deadzone": 0.18})
+var profile := InputProfile.new({
+    "deadzone": 0.18,
+    "extra_actions": ["color_previous", "color_next"],
+})
 profile.set_controller_bindings({
     "primary": JOY_BUTTON_A,
     "secondary": JOY_BUTTON_X,
     "tertiary": JOY_BUTTON_Y,
     "menu": JOY_BUTTON_START,
     "cancel": JOY_BUTTON_B,
+    "color_previous": JOY_BUTTON_LEFT_SHOULDER,
+    "color_next": JOY_BUTTON_RIGHT_SHOULDER,
 })
 profile.add_keyboard_layout(-2, {
     "move_left": KEY_LEFT,
@@ -129,6 +135,8 @@ profile.add_keyboard_layout(-2, {
     "tertiary": KEY_COMMA,
     "menu": KEY_ENTER,
     "cancel": KEY_BACKSPACE,
+    "color_previous": KEY_BRACKETLEFT,
+    "color_next": KEY_BRACKETRIGHT,
 })
 
 var input_router := InputRouter.new({"profile": profile})
@@ -137,13 +145,41 @@ var party := PartySession.new({"keyboard_device_ids": profile.keyboard_device_id
 
 Negative IDs represent synthetic keyboard layouts. Non-negative IDs are Godot joypad device IDs. Bots do not receive fake device IDs; they are first-class roster occupants.
 
+Each configured semantic action adds `<action>_pressed` and `<action>_held` fields to the device frame. Custom action names must be valid GDScript identifiers and cannot overlap movement or generated field names.
+
+## Custom lobby presentation
+
+Pass an unattached `Control` as `view`, or a `PackedScene` with a `Control` root as `view_scene`:
+
+```gdscript
+lobby.setup(party, input_router, {
+    "view_scene": preload("res://ui/custom_lobby_view.tscn"),
+    "title": "SCRAPSHIFT CREW",
+})
+```
+
+The view must implement `render_lobby(state)`. The state contains `roster`, `can_start`, `can_add_bot`, `can_remove_bot`, and `max_players`. A view can optionally implement `setup(options)` and expose `add_bot_requested(difficulty)`, `remove_bot_requested`, and `start_requested` signals. The legacy `render(roster)` method remains supported.
+
+For a completely game-owned presentation, use `CouchPartyLobbyController` directly. It has no scene-tree dependency and emits `state_changed`, `start_requested`, and `action_resolved`.
+
+## Custom lobby policy
+
+Pass a `RefCounted` policy with `resolve_intent(intent, device_id, party) -> String` to replace the default join/ready/leave transitions:
+
+```gdscript
+lobby.setup(party, input_router, {"policy": my_lobby_policy})
+```
+
+The default policy retains the familiar flow: Menu joins, readies, or requests a start; Cancel unreadies or leaves. A custom policy can add game-specific behavior without forking the addon.
+
 ## Architecture
 
-The addon exposes three focused modules:
+The addon exposes four focused modules:
 
 - `CouchPartySession` owns roster identity and readiness.
 - `CouchPartyInputRouter` translates physical events into isolated semantic frames.
-- `CouchPartyLobby` composes the session, router, and reusable lobby view.
+- `CouchPartyLobbyController` owns headless lobby intent and capability state.
+- `CouchPartyLobby` connects that controller to an injectable or default view.
 
 A game adapts semantic input frames into its own simulation commands and interprets bot metadata using its own bot controllers. This keeps the addon reusable without importing game-specific rules.
 
@@ -153,7 +189,7 @@ A game adapts semantic input frames into its own simulation commands and interpr
 ./tools/verify.sh
 ```
 
-The verifier imports every script, exercises party lifecycle, input isolation, lobby rendering and interaction, then boots the example project.
+The verifier imports every script, exercises party lifecycle, input isolation, headless lobby behavior, lobby rendering and interaction, then boots the example project.
 
 GitHub Actions runs the same verification on every push and pull request. To build the distributable Asset Store archive:
 

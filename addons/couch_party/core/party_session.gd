@@ -51,6 +51,10 @@ func snapshot() -> Dictionary:
 	return _slots.duplicate(true)
 
 
+func max_players() -> int:
+	return _max_players
+
+
 func set_ready(device_id: int, ready: bool) -> bool:
 	var player_id := player_for_device(device_id)
 	if player_id < 0 or not bool(_slots[player_id]["connected"]):

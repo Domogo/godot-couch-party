@@ -13,6 +13,7 @@ func _run() -> void:
 	_test_controller_frames_are_device_specific_and_buffer_edges(failures)
 	_test_keyboard_uses_the_same_semantic_frame(failures)
 	_test_profile_can_remap_controller_and_add_keyboard_layout(failures)
+	_test_profile_supports_custom_semantic_actions(failures)
 	if failures.is_empty():
 		print("PASS: device input router")
 		quit(0)
@@ -79,6 +80,36 @@ func _test_profile_can_remap_controller_and_add_keyboard_layout(failures: Array[
 	var keyboard_frame: Dictionary = router.frame_for_device(-2)
 	_expect_equal(keyboard_frame["move"], Vector2.RIGHT, "an additional keyboard layout should route independently", failures)
 	_expect(bool(keyboard_frame["primary_pressed"]), "the additional keyboard primary should use its own binding", failures)
+
+
+func _test_profile_supports_custom_semantic_actions(failures: Array[String]) -> void:
+	var profile: RefCounted = InputProfile.new({
+		"extra_actions": ["color_previous", "color_next"],
+	})
+	profile.set_controller_bindings({
+		"color_previous": JOY_BUTTON_LEFT_SHOULDER,
+		"color_next": JOY_BUTTON_RIGHT_SHOULDER,
+	})
+	profile.add_keyboard_layout(-2, {
+		"color_previous": KEY_COMMA,
+		"color_next": KEY_PERIOD,
+	})
+	var router: RefCounted = InputRouter.new({"profile": profile})
+	router.ingest(_button(5, JOY_BUTTON_LEFT_SHOULDER, true))
+	var controller_frame: Dictionary = router.frame_for_device(5)
+	_expect(
+		controller_frame.has("color_previous_pressed")
+			and bool(controller_frame["color_previous_pressed"]),
+		"a configured shoulder action should appear in the semantic frame",
+		failures,
+	)
+	router.ingest(_key(KEY_PERIOD, true))
+	var keyboard_frame: Dictionary = router.frame_for_device(-2)
+	_expect(
+		keyboard_frame.has("color_next_pressed") and bool(keyboard_frame["color_next_pressed"]),
+		"a custom action should work for synthetic keyboard layouts",
+		failures,
+	)
 
 
 func _motion(device_id: int, axis: JoyAxis, value: float) -> InputEventJoypadMotion:

@@ -14,6 +14,9 @@ var _accent: Color = DEFAULT_ACCENT
 var _built: bool = false
 var _title_label: Label
 var _slot_labels: Array[Label] = []
+var _slot_grid: GridContainer
+var _bot_buttons: Array[Button] = []
+var _remove_bot_button: Button
 var _start_button: Button
 
 
@@ -29,7 +32,23 @@ func setup(options: Dictionary = {}) -> void:
 
 
 func render(roster: Dictionary) -> void:
-	_build()
+	render_lobby({
+		"roster": roster,
+		"can_start": _roster_can_start(roster),
+		"can_add_bot": roster.size() < _max_players,
+		"can_remove_bot": _roster_has_bot(roster),
+		"max_players": _max_players,
+	})
+
+
+func render_lobby(state: Dictionary) -> void:
+	var state_max_players := clampi(int(state.get("max_players", _max_players)), 2, 8)
+	if state_max_players != _max_players:
+		_max_players = state_max_players
+		_build(true)
+	else:
+		_build()
+	var roster: Dictionary = state.get("roster", {}) as Dictionary
 	for player_index: int in _max_players:
 		var player_id := player_index + 1
 		var text := "P%d  •  EMPTY  •  PRESS START TO JOIN" % player_id
@@ -50,7 +69,11 @@ func render(roster: Dictionary) -> void:
 				]
 		_slot_labels[player_index].text = text
 		_slot_labels[player_index].modulate = Color.WHITE if roster.has(player_id) else Color("8490a0")
-	_start_button.disabled = roster.size() < 2
+	var can_add_bot := bool(state.get("can_add_bot", roster.size() < _max_players))
+	for button: Button in _bot_buttons:
+		button.disabled = not can_add_bot
+	_remove_bot_button.disabled = not bool(state.get("can_remove_bot", _roster_has_bot(roster)))
+	_start_button.disabled = not bool(state.get("can_start", _roster_can_start(roster)))
 
 
 func slot_texts() -> Array[String]:
@@ -67,9 +90,12 @@ func _build(force_rebuild: bool = false) -> void:
 		for child: Node in get_children():
 			child.free()
 		_slot_labels.clear()
+		_bot_buttons.clear()
 	_built = true
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	if not resized.is_connected(_refresh_responsive_layout):
+		resized.connect(_refresh_responsive_layout)
 
 	var shade := ColorRect.new()
 	shade.color = Color(0.025, 0.035, 0.055, 0.94)
@@ -77,8 +103,12 @@ func _build(force_rebuild: bool = false) -> void:
 	add_child(shade)
 
 	var panel := PanelContainer.new()
-	panel.position = Vector2(190.0, 54.0)
-	panel.size = Vector2(900.0, 612.0)
+	panel.anchor_left = 0.08
+	panel.anchor_top = 0.075
+	panel.anchor_right = 0.92
+	panel.anchor_bottom = 0.925
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	var panel_style := StyleBoxFlat.new()
 	panel_style.bg_color = Color("111827")
 	panel_style.border_color = _accent.darkened(0.2)
@@ -106,15 +136,17 @@ func _build(force_rebuild: bool = false) -> void:
 	instruction.add_theme_color_override("font_color", Color("aeb8c8"))
 	content.add_child(instruction)
 
-	var slots := GridContainer.new()
-	slots.columns = 2
-	slots.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	slots.add_theme_constant_override("h_separation", 12)
-	slots.add_theme_constant_override("v_separation", 12)
-	content.add_child(slots)
+	_slot_grid = GridContainer.new()
+	_slot_grid.columns = 2
+	_slot_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_slot_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_slot_grid.add_theme_constant_override("h_separation", 12)
+	_slot_grid.add_theme_constant_override("v_separation", 12)
+	content.add_child(_slot_grid)
 	for player_index: int in _max_players:
 		var card := PanelContainer.new()
-		card.custom_minimum_size = Vector2(402.0, 86.0)
+		card.custom_minimum_size = Vector2(260.0, 74.0)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var card_style := StyleBoxFlat.new()
 		card_style.bg_color = Color("1b2535")
 		card_style.border_color = Color("344258")
@@ -122,7 +154,7 @@ func _build(force_rebuild: bool = false) -> void:
 		card_style.set_corner_radius_all(8)
 		card_style.set_content_margin_all(16.0)
 		card.add_theme_stylebox_override("panel", card_style)
-		slots.add_child(card)
+		_slot_grid.add_child(card)
 		var label := Label.new()
 		label.text = "P%d  •  EMPTY  •  PRESS START TO JOIN" % (player_index + 1)
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -139,16 +171,18 @@ func _build(force_rebuild: bool = false) -> void:
 		bot_button.text = "+ %s BOT" % difficulty.to_upper()
 		bot_button.pressed.connect(_emit_add_bot.bind(difficulty))
 		buttons.add_child(bot_button)
+		_bot_buttons.append(bot_button)
 		if difficulty == "easy":
 			bot_button.call_deferred("grab_focus")
-	var remove_button := Button.new()
-	remove_button.text = "− BOT"
-	remove_button.pressed.connect(remove_bot_requested.emit)
-	buttons.add_child(remove_button)
+	_remove_bot_button = Button.new()
+	_remove_bot_button.text = "− BOT"
+	_remove_bot_button.pressed.connect(remove_bot_requested.emit)
+	buttons.add_child(_remove_bot_button)
 	_start_button = Button.new()
 	_start_button.text = "START MATCH"
 	_start_button.pressed.connect(start_requested.emit)
 	buttons.add_child(_start_button)
+	_refresh_responsive_layout()
 
 
 func _emit_add_bot(difficulty: String) -> void:
@@ -161,3 +195,31 @@ func _device_label(device_id: int) -> String:
 	if device_id < -1:
 		return "KEYBOARD %d" % absi(device_id)
 	return "CONTROLLER %d" % (device_id + 1)
+
+
+func _refresh_responsive_layout() -> void:
+	if is_instance_valid(_slot_grid):
+		_slot_grid.columns = 1 if size.x > 0.0 and size.x < 720.0 else 2
+
+
+func _roster_can_start(roster: Dictionary) -> bool:
+	if roster.size() < 2:
+		return false
+	var has_human := false
+	for slot_variant: Variant in roster.values():
+		var slot: Dictionary = slot_variant as Dictionary
+		if String(slot.get("control_kind", "human")) == "human":
+			has_human = true
+			if not bool(slot.get("connected", false)) or not bool(slot.get("ready", false)):
+				return false
+		elif not bool(slot.get("ready", false)):
+			return false
+	return has_human
+
+
+func _roster_has_bot(roster: Dictionary) -> bool:
+	for slot_variant: Variant in roster.values():
+		var slot: Dictionary = slot_variant as Dictionary
+		if String(slot.get("control_kind", "human")) == "bot":
+			return true
+	return false

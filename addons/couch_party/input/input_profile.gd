@@ -10,10 +10,21 @@ var deadzone: float = DEFAULT_DEADZONE
 var _controller_actions: Dictionary = {}
 var _keyboard_bindings: Dictionary = {}
 var _keyboard_devices: Dictionary = {}
+var _semantic_action_names: Array[String] = [
+	"primary",
+	"secondary",
+	"tertiary",
+	"menu",
+	"cancel",
+]
 
 
 func _init(config: Dictionary = {}) -> void:
 	deadzone = clampf(float(config.get("deadzone", DEFAULT_DEADZONE)), 0.0, 0.95)
+	for action_variant: Variant in config.get("extra_actions", []) as Array:
+		var action := String(action_variant).strip_edges()
+		if _is_valid_custom_action(action) and action not in _semantic_action_names:
+			_semantic_action_names.append(action)
 	set_controller_bindings({
 		"primary": JOY_BUTTON_X,
 		"secondary": JOY_BUTTON_A,
@@ -92,9 +103,21 @@ func keyboard_device_ids() -> Array[int]:
 	return result
 
 
+func action_names() -> Array[String]:
+	return _semantic_action_names.duplicate()
+
+
 func _semantic_actions() -> Array[String]:
-	return ["primary", "secondary", "tertiary", "menu", "cancel"]
+	return action_names()
 
 
 func _all_actions() -> Array[String]:
 	return ["move_left", "move_right", "move_up", "move_down"] + _semantic_actions()
+
+
+func _is_valid_custom_action(action: String) -> bool:
+	return action.is_valid_identifier() \
+		and action not in ["move", "aim"] \
+		and not action.begins_with("move_") \
+		and not action.ends_with("_pressed") \
+		and not action.ends_with("_held")

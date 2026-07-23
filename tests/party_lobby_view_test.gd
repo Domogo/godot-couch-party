@@ -23,6 +23,24 @@ func _run() -> void:
 	_expect("KEYBOARD" in slot_texts[0] and "READY" in slot_texts[0], "the human slot should show device and readiness", failures)
 	_expect("CPU" in slot_texts[1] and "HARD" in slot_texts[1], "the bot slot should show kind and difficulty", failures)
 	_expect("EMPTY" in slot_texts[2], "unused slots should remain visible", failures)
+	var start_button := _button_with_text(view, "START MATCH")
+	_expect(start_button != null and not start_button.disabled, "a ready roster should enable Start", failures)
+	party.set_ready(PartySession.KEYBOARD_PRIMARY, false)
+	view.render(party.snapshot())
+	_expect(start_button.disabled, "an unready human should disable Start", failures)
+	view.render_lobby({
+		"roster": party.snapshot(),
+		"can_start": false,
+		"can_add_bot": true,
+		"can_remove_bot": true,
+		"max_players": 8,
+	})
+	_expect_equal(
+		view.slot_texts().size(),
+		8,
+		"the default view should follow the session capacity from lobby state",
+		failures,
+	)
 	var requested_difficulties: Array[String] = []
 	view.add_bot_requested.connect(func(difficulty: String) -> void:
 		requested_difficulties.append(difficulty)
@@ -46,6 +64,24 @@ func _run() -> void:
 	quit(1)
 
 
+func _button_with_text(view: Control, text: String) -> Button:
+	for node: Node in view.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button.text == text:
+			return button
+	return null
+
+
 func _expect(condition: bool, message: String, failures: Array[String]) -> void:
 	if not condition:
 		failures.append(message)
+
+
+func _expect_equal(
+	actual: Variant,
+	expected: Variant,
+	message: String,
+	failures: Array[String],
+) -> void:
+	if actual != expected:
+		failures.append("%s (expected %s, got %s)" % [message, expected, actual])

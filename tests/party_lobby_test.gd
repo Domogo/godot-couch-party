@@ -5,6 +5,23 @@ const InputRouter := preload("res://addons/couch_party/input/device_input_router
 const PartyLobby := preload("res://addons/couch_party/ui/party_lobby.gd")
 
 
+class RecordingLobbyView:
+	extends Control
+
+	signal add_bot_requested(difficulty: String)
+	signal remove_bot_requested
+	signal start_requested
+
+	var setup_title: String = ""
+	var rendered_states: Array[Dictionary] = []
+
+	func setup(options: Dictionary = {}) -> void:
+		setup_title = String(options.get("title", ""))
+
+	func render_lobby(state: Dictionary) -> void:
+		rendered_states.append(state.duplicate(true))
+
+
 func _initialize() -> void:
 	_run.call_deferred()
 
@@ -30,6 +47,7 @@ func _run() -> void:
 	lobby.handle_event(_button(0, JOY_BUTTON_B, false))
 	_expect_equal(lobby.handle_event(_button(0, JOY_BUTTON_B)), "left", "cancel should then release an unready slot", failures)
 	lobby.queue_free()
+	_test_custom_view_receives_lobby_capabilities(failures)
 	if failures.is_empty():
 		print("PASS: party lobby")
 		quit(0)
@@ -37,6 +55,46 @@ func _run() -> void:
 	for failure: String in failures:
 		printerr("FAIL: %s" % failure)
 	quit(1)
+
+
+func _test_custom_view_receives_lobby_capabilities(failures: Array[String]) -> void:
+	var party: RefCounted = PartySession.new()
+	var router: RefCounted = InputRouter.new()
+	var view := RecordingLobbyView.new()
+	var lobby: Control = PartyLobby.new()
+	root.add_child(lobby)
+	lobby.setup(party, router, {
+		"title": "CUSTOM PARTY",
+		"view": view,
+	})
+	_expect(view.get_parent() == lobby, "a supplied custom view should be installed", failures)
+	_expect_equal(view.setup_title, "CUSTOM PARTY", "view setup should receive public options", failures)
+	_expect_equal(view.rendered_states.size(), 1, "the custom view should receive initial state", failures)
+	_expect(
+		not bool(view.rendered_states[-1]["can_start"]),
+		"the initial custom view state should disable start",
+		failures,
+	)
+	lobby.handle_event(_key(KEY_ENTER))
+	lobby.handle_event(_key(KEY_ENTER, false))
+	lobby.handle_event(_key(KEY_ENTER))
+	lobby.handle_event(_key(KEY_ENTER, false))
+	view.add_bot_requested.emit(PartySession.BOT_HARD)
+	var ready_state: Dictionary = view.rendered_states[-1]
+	_expect(bool(ready_state["can_start"]), "the custom view should receive start capability", failures)
+	_expect_equal(
+		(ready_state["roster"] as Dictionary).size(),
+		2,
+		"the custom view state should contain the current roster",
+		failures,
+	)
+	var requested_starts: Array[Dictionary] = []
+	lobby.start_requested.connect(func(roster: Dictionary) -> void:
+		requested_starts.append(roster)
+	)
+	view.start_requested.emit()
+	_expect_equal(requested_starts.size(), 1, "custom view controls should reach the lobby", failures)
+	lobby.queue_free()
 
 
 func _button(device_id: int, button: JoyButton, pressed: bool = true) -> InputEventJoypadButton:
@@ -52,6 +110,11 @@ func _key(keycode: Key, pressed: bool = true) -> InputEventKey:
 	event.keycode = keycode
 	event.pressed = pressed
 	return event
+
+
+func _expect(condition: bool, message: String, failures: Array[String]) -> void:
+	if not condition:
+		failures.append(message)
 
 
 func _expect_equal(actual: Variant, expected: Variant, message: String, failures: Array[String]) -> void:

@@ -6,11 +6,11 @@ Godot Couch Party is prepared as a free `Addon` submission for the Godot Asset S
 
 **Name:** Godot Couch Party
 
-**Summary:** Reusable local multiplayer roster, isolated controller input, and six-slot lobby for Godot 4.
+**Summary:** Customizable local multiplayer roster, isolated controller input, and lobby tools for Godot 4.
 
 **Description:**
 
-Godot Couch Party supplies the infrastructure shared by local multiplayer games: stable join and reconnect behavior, per-controller input isolation, ready state, human and bot roster slots, Easy/Medium/Hard bot metadata, and a reusable lobby for up to six participants. The runtime-only GDScript addon stays independent of game rules, character spawning, scoring, and bot intelligence. Copy the addon folder into a Godot 4.7 project and adapt its semantic input frames and roster snapshots to your game.
+Godot Couch Party supplies the infrastructure shared by local multiplayer games: stable join and reconnect behavior, per-controller input isolation, ready state, human and bot roster slots, Easy/Medium/Hard bot metadata, and a reusable lobby for up to six participants. Version 0.1.1 adds a headless lobby controller, injectable lobby views, custom lobby policies, configurable semantic input actions, and a more responsive default lobby. The runtime-only GDScript addon stays independent of game rules, character spawning, scoring, and bot intelligence. Copy the addon folder into a Godot 4.7 project and adapt its semantic input frames, capability state, and roster snapshots to your game.
 
 - **Type:** Addon
 - **License:** MIT

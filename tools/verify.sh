@@ -39,22 +39,25 @@ run_godot() {
 	fi
 }
 
-echo "[1/6] Importing the addon test project"
+echo "[1/7] Importing the addon test project"
 run_godot --headless --editor --path "$ROOT" --quit
 
-echo "[2/6] Verifying party lifecycle behavior"
+echo "[2/7] Verifying party lifecycle behavior"
 run_godot --headless --path "$ROOT" --script res://tests/party_session_test.gd
 
-echo "[3/6] Verifying per-device input behavior"
+echo "[3/7] Verifying per-device input behavior"
 run_godot --headless --path "$ROOT" --script res://tests/input_router_test.gd
 
-echo "[4/6] Verifying lobby presentation"
+echo "[4/7] Verifying headless lobby behavior"
+run_godot --headless --path "$ROOT" --script res://tests/party_lobby_controller_test.gd
+
+echo "[5/7] Verifying lobby presentation"
 run_godot --headless --path "$ROOT" --script res://tests/party_lobby_view_test.gd
 
-echo "[5/6] Verifying lobby interaction flow"
+echo "[6/7] Verifying lobby interaction flow"
 run_godot --headless --path "$ROOT" --script res://tests/party_lobby_test.gd
 
-echo "[6/6] Booting the example project"
+echo "[7/7] Booting the example project"
 run_godot --headless --path "$ROOT" --quit-after 2
 
 echo "Godot Couch Party verification passed."
