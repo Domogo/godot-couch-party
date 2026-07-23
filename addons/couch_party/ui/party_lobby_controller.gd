@@ -54,7 +54,7 @@ func handle_event(event: InputEvent) -> String:
 	elif bool(frame["cancel_pressed"]):
 		action = _resolve_intent("cancel", device_id)
 	elif bool(frame["secondary_pressed"]):
-		action = "confirm_requested"
+		action = _resolve_confirm(device_id)
 	if action != "ignored":
 		if action == "left":
 			_input_router.clear_device(device_id)
@@ -185,6 +185,23 @@ func _handle_cancel(device_id: int) -> String:
 	if not _party.leave(device_id):
 		return "ignored"
 	return "left"
+
+
+func _resolve_confirm(device_id: int) -> String:
+	if _policy != null:
+		var policy_action := String(
+			_policy.call("resolve_intent", "confirm", device_id, _party)
+		)
+		if policy_action != "ignored":
+			return policy_action
+	var player_id: int = _party.player_for_device(device_id)
+	if player_id < 0:
+		player_id = _party.join(device_id)
+		if player_id < 0:
+			return "full"
+		_party.set_ready(device_id, true)
+		return "ready"
+	return "confirm_requested"
 
 
 func _resolve_intent(intent: String, device_id: int) -> String:

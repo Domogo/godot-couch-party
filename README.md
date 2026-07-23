@@ -16,7 +16,7 @@ Godot Couch Party is a small, runtime-only Godot 4 addon for building local mult
 - Buffered press edges that survive render-to-physics timing
 - Headless lobby controller with injectable views and game-owned policies
 - Responsive six-slot default lobby with bot controls
-- Explicit controller confirmation for focused lobby controls without relying on `ui_accept`
+- Device-aware South/A joining and focused-control confirmation without relying on `ui_accept`
 - Headless public-interface tests and a runnable example project
 
 Godot Couch Party does not implement online multiplayer, game rules, character spawning, scoring, or bot AI.
@@ -106,10 +106,10 @@ The included example can be opened directly as a Godot project. Press Enter or c
 
 The default controller convention is left stick movement, West/X primary, South/A secondary, North/Y tertiary, Start menu, and East/B cancel. The default keyboard convention is WASD, E, Space, Q, Enter, and Escape.
 
-In `CouchPartyLobby`, the secondary action explicitly activates the focused, visible button.
-This keeps controller confirmation reliable even when a host project's `ui_accept` InputMap
-is missing or overridden. It does not join a player; Menu/Start retains device-scoped join,
-ready, and start intent.
+In `CouchPartyLobby`, the secondary action joins and readies an unassigned device. Once that
+device has joined, the same action explicitly activates the focused, visible button. This keeps
+controller joining and confirmation reliable even when a host project's `ui_accept` InputMap
+is missing or overridden. Menu/Start remains a device-scoped join and ready shortcut.
 
 Press fields are consumed once per device. Held fields remain true until a release event is ingested. Call `clear_device()` or `clear_all()` at scene and pause transitions to prevent input leakage.
 

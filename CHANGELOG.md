@@ -2,6 +2,11 @@
 
 All notable changes follow [Semantic Versioning](https://semver.org/).
 
+## 0.1.3 — 2026-07-23
+
+- Made South/A join and ready an unassigned controller before activating focused lobby controls.
+- Updated the default lobby prompts and empty-slot copy to teach the one-button join flow.
+
 ## 0.1.2 — 2026-07-23
 
 - Added an explicit controller confirmation request to the headless lobby controller.

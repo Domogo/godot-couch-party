@@ -69,10 +69,19 @@ func _test_controller_confirm_activates_focused_button(failures: Array[String]) 
 	if easy_bot_button != null:
 		easy_bot_button.grab_focus()
 		lobby.call("_input", _button(0, JOY_BUTTON_A))
+		_expect(
+			party.player_for_device(0) == 1
+			and bool(party.snapshot()[1]["ready"])
+			and party.bot_player_ids().is_empty(),
+			"the first controller A press should join and ready its physical device",
+			failures,
+		)
+		lobby.call("_input", _button(0, JOY_BUTTON_A, false))
+		lobby.call("_input", _button(0, JOY_BUTTON_A))
 		_expect_equal(
 			party.bot_player_ids().size(),
 			1,
-			"controller A should activate the focused lobby button explicitly",
+			"controller A should activate the focused lobby button after joining",
 			failures,
 		)
 	lobby.queue_free()

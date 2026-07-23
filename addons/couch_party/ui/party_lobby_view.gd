@@ -51,7 +51,7 @@ func render_lobby(state: Dictionary) -> void:
 	var roster: Dictionary = state.get("roster", {}) as Dictionary
 	for player_index: int in _max_players:
 		var player_id := player_index + 1
-		var text := "P%d  •  EMPTY  •  PRESS START TO JOIN" % player_id
+		var text := "P%d  •  EMPTY  •  PRESS A / CROSS TO JOIN" % player_id
 		if roster.has(player_id):
 			var slot: Dictionary = roster[player_id]
 			if String(slot.get("control_kind", "human")) == "bot":
@@ -130,7 +130,7 @@ func _build(force_rebuild: bool = false) -> void:
 	content.add_child(_title_label)
 
 	var instruction := Label.new()
-	instruction.text = "START: JOIN / READY   •   B / ESC: LEAVE   •   HOST STARTS WHEN EVERYONE IS READY"
+	instruction.text = "A / CROSS: JOIN / SELECT   •   START: READY   •   B / ESC: LEAVE"
 	instruction.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	instruction.add_theme_font_size_override("font_size", 13)
 	instruction.add_theme_color_override("font_color", Color("aeb8c8"))
@@ -156,7 +156,7 @@ func _build(force_rebuild: bool = false) -> void:
 		card.add_theme_stylebox_override("panel", card_style)
 		_slot_grid.add_child(card)
 		var label := Label.new()
-		label.text = "P%d  •  EMPTY  •  PRESS START TO JOIN" % (player_index + 1)
+		label.text = "P%d  •  EMPTY  •  PRESS A / CROSS TO JOIN" % (player_index + 1)
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		label.add_theme_font_size_override("font_size", 16)
 		card.add_child(label)

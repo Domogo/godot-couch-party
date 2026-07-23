@@ -40,18 +40,6 @@ func _run() -> void:
 	_expect_equal(initial_state["max_players"], 6, "the state should expose party capacity", failures)
 	_expect(not bool(initial_state["can_start"]), "an empty party should not start", failures)
 	_expect(not bool(initial_state["can_remove_bot"]), "an empty party should not remove a bot", failures)
-	_expect_equal(
-		controller.handle_event(_button(0, JOY_BUTTON_A)),
-		"confirm_requested",
-		"the controller secondary action should request an explicit focused-control confirmation",
-		failures,
-	)
-	controller.handle_event(_button(0, JOY_BUTTON_A, false))
-	_expect(
-		(controller.lobby_state()["roster"] as Dictionary).is_empty(),
-		"a UI confirmation request must not impersonate a device join",
-		failures,
-	)
 
 	_expect_equal(
 		controller.handle_event(_button(0, JOY_BUTTON_START)),
@@ -73,6 +61,7 @@ func _run() -> void:
 		"state updates should contain the current roster",
 		failures,
 	)
+	_test_south_button_joins_before_it_confirms(failures)
 	_test_custom_policy_can_change_join_behavior(failures)
 
 	if failures.is_empty():
@@ -82,6 +71,40 @@ func _run() -> void:
 	for failure: String in failures:
 		printerr("FAIL: %s" % failure)
 	quit(1)
+
+
+func _test_south_button_joins_before_it_confirms(failures: Array[String]) -> void:
+	var party: RefCounted = PartySession.new()
+	var router: RefCounted = InputRouter.new()
+	var controller: RefCounted = PartyLobbyController.new()
+	_expect(controller.setup(party, router), "the controller should configure", failures)
+	_expect_equal(
+		controller.handle_event(_button(3, JOY_BUTTON_A)),
+		"ready",
+		"South/A/Cross should join and ready an unassigned physical device",
+		failures,
+	)
+	controller.handle_event(_button(3, JOY_BUTTON_A, false))
+	var roster: Dictionary = controller.lobby_state()["roster"]
+	_expect(
+		roster.size() == 1
+		and party.player_for_device(3) == 1
+		and bool(roster[1]["ready"]),
+		"South/A/Cross join should retain the originating device identity",
+		failures,
+	)
+	_expect_equal(
+		controller.handle_event(_button(3, JOY_BUTTON_A)),
+		"confirm_requested",
+		"South/A/Cross should confirm focused controls after its device has joined",
+		failures,
+	)
+	_expect_equal(
+		controller.lobby_state()["roster"],
+		roster,
+		"a focused-control confirmation must not mutate the joined roster",
+		failures,
+	)
 
 
 func _test_custom_policy_can_change_join_behavior(failures: Array[String]) -> void:
