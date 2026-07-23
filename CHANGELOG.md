@@ -2,6 +2,12 @@
 
 All notable changes follow [Semantic Versioning](https://semver.org/).
 
+## 0.1.2 — 2026-07-23
+
+- Added an explicit controller confirmation request to the headless lobby controller.
+- Made the default and custom lobby views activate focused buttons from South/A without relying on a host project's `ui_accept` action.
+- Preserved Start as the isolated per-device join and ready command.
+
 ## 0.1.1 — 2026-07-23
 
 - Added a headless lobby controller with capability state and optional game-owned policies.

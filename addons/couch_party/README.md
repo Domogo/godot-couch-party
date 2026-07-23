@@ -1,6 +1,6 @@
 # Godot Couch Party
 
-Version 0.1.1. Runtime-only Godot 4 addon for local parties of human and bot players.
+Version 0.1.2. Runtime-only Godot 4 addon for local parties of human and bot players.
 
 This folder is self-contained. Copy `addons/couch_party/` into a Godot project; no editor plugin needs to be enabled.
 
@@ -14,5 +14,8 @@ The public modules are:
 Lobby views implement `render_lobby(state)` and may emit `add_bot_requested`, `remove_bot_requested`, or `start_requested`. Pass a view with the `view` option or a `PackedScene` with `view_scene`. Pass a `RefCounted` `policy` with `resolve_intent(intent, device_id, party)` to customize join, ready, start, and leave behavior.
 
 Input profiles accept `extra_actions`; each configured name appears in input frames as `<name>_pressed` and `<name>_held`.
+
+The lobby treats the profile's secondary controller action (South/A by default) as an explicit
+focused-button confirmation. Menu/Start remains the per-device join and ready action.
 
 Complete documentation and examples are available at [github.com/Domogo/godot-couch-party](https://github.com/Domogo/godot-couch-party).

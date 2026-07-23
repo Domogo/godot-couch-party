@@ -53,12 +53,14 @@ func handle_event(event: InputEvent) -> String:
 		action = _resolve_intent("menu", device_id)
 	elif bool(frame["cancel_pressed"]):
 		action = _resolve_intent("cancel", device_id)
+	elif bool(frame["secondary_pressed"]):
+		action = "confirm_requested"
 	if action != "ignored":
 		if action == "left":
 			_input_router.clear_device(device_id)
 		if action == "start_requested":
 			start_requested.emit(_party.snapshot())
-		elif action != "full":
+		elif action not in ["full", "confirm_requested"]:
 			_refresh()
 		action_resolved.emit(action, device_id)
 	return action

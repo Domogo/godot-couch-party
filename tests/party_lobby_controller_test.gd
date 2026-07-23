@@ -40,6 +40,18 @@ func _run() -> void:
 	_expect_equal(initial_state["max_players"], 6, "the state should expose party capacity", failures)
 	_expect(not bool(initial_state["can_start"]), "an empty party should not start", failures)
 	_expect(not bool(initial_state["can_remove_bot"]), "an empty party should not remove a bot", failures)
+	_expect_equal(
+		controller.handle_event(_button(0, JOY_BUTTON_A)),
+		"confirm_requested",
+		"the controller secondary action should request an explicit focused-control confirmation",
+		failures,
+	)
+	controller.handle_event(_button(0, JOY_BUTTON_A, false))
+	_expect(
+		(controller.lobby_state()["roster"] as Dictionary).is_empty(),
+		"a UI confirmation request must not impersonate a device join",
+		failures,
+	)
 
 	_expect_equal(
 		controller.handle_event(_button(0, JOY_BUTTON_START)),

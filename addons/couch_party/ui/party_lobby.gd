@@ -52,6 +52,8 @@ func _input(event: InputEvent) -> void:
 	if not visible or not _configured:
 		return
 	var action := handle_event(event)
+	if action == "confirm_requested":
+		action = "confirmed" if _activate_focused_button() else "ignored"
 	if not action.is_empty() and action != "ignored":
 		get_viewport().set_input_as_handled()
 
@@ -110,6 +112,16 @@ func input_router() -> RefCounted:
 
 func controller() -> RefCounted:
 	return _controller
+
+
+func _activate_focused_button() -> bool:
+	var button := get_viewport().gui_get_focus_owner() as Button
+	if button == null or not is_ancestor_of(button):
+		return false
+	if not button.is_visible_in_tree() or button.disabled:
+		return false
+	button.pressed.emit()
+	return true
 
 
 func _create_view(options: Dictionary) -> Control:

@@ -28,6 +28,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var failures: Array[String] = []
+	_test_controller_confirm_activates_focused_button(failures)
 	var party: RefCounted = PartySession.new()
 	var router: RefCounted = InputRouter.new()
 	var lobby: Control = PartyLobby.new()
@@ -55,6 +56,26 @@ func _run() -> void:
 	for failure: String in failures:
 		printerr("FAIL: %s" % failure)
 	quit(1)
+
+
+func _test_controller_confirm_activates_focused_button(failures: Array[String]) -> void:
+	var party: RefCounted = PartySession.new()
+	var router: RefCounted = InputRouter.new()
+	var lobby: Control = PartyLobby.new()
+	root.add_child(lobby)
+	_expect(lobby.setup(party, router), "the default lobby should configure", failures)
+	var easy_bot_button := _button_with_text(lobby, "+ EASY BOT")
+	_expect(easy_bot_button != null, "the default lobby should expose its first focused action", failures)
+	if easy_bot_button != null:
+		easy_bot_button.grab_focus()
+		lobby.call("_input", _button(0, JOY_BUTTON_A))
+		_expect_equal(
+			party.bot_player_ids().size(),
+			1,
+			"controller A should activate the focused lobby button explicitly",
+			failures,
+		)
+	lobby.queue_free()
 
 
 func _test_custom_view_receives_lobby_capabilities(failures: Array[String]) -> void:
@@ -95,6 +116,14 @@ func _test_custom_view_receives_lobby_capabilities(failures: Array[String]) -> v
 	view.start_requested.emit()
 	_expect_equal(requested_starts.size(), 1, "custom view controls should reach the lobby", failures)
 	lobby.queue_free()
+
+
+func _button_with_text(parent: Node, text: String) -> Button:
+	for node: Node in parent.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button.text == text:
+			return button
+	return null
 
 
 func _button(device_id: int, button: JoyButton, pressed: bool = true) -> InputEventJoypadButton:
